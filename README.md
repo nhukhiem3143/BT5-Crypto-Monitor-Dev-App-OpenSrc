@@ -2,10 +2,8 @@
 
 # 🚀 CRYPTO MONITOR & ALERT SYSTEM
 
-<img src="docs/images/banner.png" alt="Crypto Monitor Banner" width="100%">
-
-> **Hệ thống giám sát giá tiền điện tử realtime với cảnh báo tự động qua Telegram**
-> Theo dõi BTC · ETH · SOL · Cảnh báo bất thường · Dashboard Grafana · 100% Docker
+> **Hệ thống giám sát giá tiền điện tử realtime với cảnh báo tự động qua Telegram**  
+> Theo dõi BTC · ETH · SOL · Cảnh báo bất thường · Telegram · Dashboard Grafana · Docker
 
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com)
 [![Node-RED](https://img.shields.io/badge/Node--RED-3.1.9-8F0000?logo=nodered&logoColor=white)](https://nodered.org)
@@ -30,7 +28,7 @@
 4. [Yêu cầu hệ thống](#4-yêu-cầu-hệ-thống)
 5. [Cấu trúc thư mục](#5-cấu-trúc-thư-mục)
 6. [Cấu hình chi tiết từng service](#6-cấu-hình-chi-tiết-từng-service)
-7. [Hướng dẫn cài đặt & chạy](#7-hướng-dẫn-cài-đặt--chạy)
+7. [Các bước cài đặt & chạy](#7-các-bước-cài-đặt--chạy)
 8. [Cấu hình Node-RED](#8-cấu-hình-node-red)
 9. [Cấu hình Grafana](#9-cấu-hình-grafana)
 10. [Cấu hình Telegram Alert Bot](#10-cấu-hình-telegram-alert-bot)
@@ -55,45 +53,6 @@ Docker là nền tảng **containerization** mã nguồn mở cho phép đóng g
 | **Docker Engine** | Daemon chạy nền (`dockerd`) quản lý Container, Image, Network, Volume |
 | **Docker Hub** | Registry công khai tại hub.docker.com để lưu trữ và chia sẻ Image |
 | **Docker Compose** | Công cụ định nghĩa & chạy multi-container bằng file `docker-compose.yml` |
-
-### 🏗️ Kiến trúc Docker
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        DOCKER HOST                          │
-│                                                             │
-│  ┌─────────────────┐    ┌──────────────────────────────┐   │
-│  │   Docker Client  │    │        Docker Daemon          │   │
-│  │                 │    │                              │   │
-│  │  $ docker run   │───▶│  ┌──────────┐ ┌──────────┐  │   │
-│  │  $ docker build │    │  │Container │ │Container │  │   │
-│  │  $ docker pull  │    │  │  (app)   │ │  (db)    │  │   │
-│  └─────────────────┘    │  └──────────┘ └──────────┘  │   │
-│                         │                              │   │
-│                         │  ┌──────────────────────┐   │   │
-│                         │  │      Images Cache     │   │   │
-│                         │  │  nginx │ mysql │ py   │   │   │
-│                         │  └──────────────────────┘   │   │
-│                         └──────────────────────────────┘   │
-│                                    │                        │
-└────────────────────────────────────┼────────────────────────┘
-                                     │ pull/push
-                              ┌──────▼──────┐
-                              │  Docker Hub  │
-                              │  (Registry) │
-                              └─────────────┘
-```
-
-### 🗂️ Vòng đời Docker Image & Container
-
-```
-Dockerfile ──── docker build ──▶ Image ──── docker run ──▶ Container
-                                   │                           │
-                                   │◀── docker commit ─────────┘
-                                   │
-                              docker push ──▶ Registry
-                              docker save ──▶ .tar file
-```
 
 ---
 
@@ -378,87 +337,102 @@ docker run -d --name flask_restored crypto-flask-api:snapshot
 
 # 3. Kiến trúc hệ thống
 
-```
-                          ┌─────────────────────────────────────────────┐
-                          │           INTERNET / USER BROWSER            │
-                          └──────────────────┬──────────────────────────┘
-                                             │ HTTPS
-                          ┌──────────────────▼──────────────────────────┐
-                          │          CLOUDFLARE TUNNEL                   │
-                          │     crypto.nhukhiem.id.vn                   │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                          ┌──────────────────▼──────────────────────────┐
-                          │               NGINX :80                      │
-                          │         Reverse Proxy + Static               │
-                          └──────┬──────────────────────┬───────────────┘
-                                 │ /api/*               │ /*
-              ┌──────────────────▼──────┐    ┌──────────▼──────────────┐
-              │     FLASK API :5000     │    │   FRONTEND (React/Vite) │
-              │   REST API Endpoints   │    │     Static Files in     │
-              │  /api/prices           │    │     /usr/share/nginx    │
-              │  /api/history          │    └─────────────────────────┘
-              │  /api/alerts           │
-              │  /api/system-status    │
-              └──────┬───────┬─────────┘
-                     │       │
-          ┌──────────▼─┐  ┌──▼───────────┐
-          │  MARIADB   │  │   INFLUXDB   │
-          │ :3306      │  │   :8086      │
-          │realtime_   │  │ crypto_price │
-          │prices      │  │ measurement  │
-          │price_alerts│  │ (time-series)│
-          └────────────┘  └──────────────┘
-                  ▲               ▲
-                  │               │
-          ┌───────┴───────────────┴───────┐
-          │         NODE-RED :1880         │
-          │   ┌─────────────────────────┐ │
-          │   │  Binance WebSocket WS   │ │
-          │   │  btcusdt/ethusdt/solusdt│ │
-          │   └───────────┬─────────────┘ │
-          │               │               │
-          │   ┌───────────▼─────────────┐ │
-          │   │   Parse & Route Data    │ │
-          │   └──┬───────────────┬──────┘ │
-          │      │               │        │
-          │  MariaDB          InfluxDB    │
-          │  Upsert           Write       │
-          │      │                        │
-          │   ┌──▼────────────────────┐  │
-          │   │  Threshold Checker    │  │
-          │   │  BTC >120k / <100k   │  │
-          │   │  ETH >7k  / <4k     │  │
-          │   │  SOL >300 / <100    │  │
-          │   └──────────┬────────────┘  │
-          │              │ Alert!         │
-          │   ┌──────────▼────────────┐  │
-          │   │  Telegram Bot API     │  │
-          │   │  → Group Chat        │  │
-          │   └───────────────────────┘  │
-          └────────────────────────────────┘
+```mermaid
+flowchart LR
 
-          ┌─────────────────────────────────┐
-          │        GRAFANA :3000            │
-          │   InfluxDB Datasource           │
-          │   Dashboard: crypto-prices      │
-          │   Embed via iframe in frontend  │
-          └─────────────────────────────────┘
+    subgraph Client
+        USER["User Browser"]
+    end
 
-┌─────────────────────────── Docker Network: crypto_net (172.20.0.0/16) ─────────┐
-│  nginx · frontend · flask-api · mariadb · influxdb · grafana · nodered · cf    │
-└─────────────────────────────────────────────────────────────────────────────────┘
+    subgraph Cloud
+        CF["Cloudflare Tunnel"]
+    end
+
+    subgraph WebLayer
+        NGINX["NGINX Reverse Proxy"]
+        FE["Frontend<br/>React/Vite"]
+        API["Flask API"]
+    end
+
+    subgraph DataLayer
+        DB["MariaDB"]
+        INFLUX["InfluxDB"]
+    end
+
+    subgraph Processing
+        NR["Node-RED"]
+        BINANCE["Binance WebSocket"]
+        ALERT["Threshold Checker"]
+        TG["Telegram Bot"]
+    end
+
+    subgraph Monitoring
+        GRAFANA["Grafana"]
+    end
+
+    USER --> CF
+    CF --> NGINX
+
+    NGINX --> FE
+    NGINX --> API
+
+    API --> DB
+    API --> INFLUX
+
+    BINANCE --> NR
+
+    NR --> DB
+    NR --> INFLUX
+
+    NR --> ALERT
+    ALERT --> TG
+
+    INFLUX --> GRAFANA
+    GRAFANA -.iframe.-> FE
 ```
 
 ## 🌐 Luồng dữ liệu
 
-```
-Binance WS ──▶ Node-RED ──┬──▶ MariaDB (realtime_prices)
-                           ├──▶ InfluxDB (crypto_price measurement)
-                           └──▶ Telegram (khi vượt ngưỡng)
+```mermaid
+flowchart LR
 
-Frontend ──▶ Nginx ──▶ Flask API ──▶ MariaDB / InfluxDB
-Frontend ──▶ Nginx ──▶ Grafana iframe (biểu đồ lịch sử)
+    subgraph Data Collection
+        BINANCE["Binance WebSocket"]
+        NR["Node-RED"]
+        BINANCE --> NR
+    end
+
+    subgraph Storage
+        DB["MariaDB<br/>realtime_prices"]
+        INFLUX["InfluxDB<br/>crypto_price"]
+    end
+
+    subgraph Alerting
+        TG["Telegram Bot"]
+    end
+
+    NR --> DB
+    NR --> INFLUX
+    NR --> TG
+
+    subgraph Web Application
+        FE["Frontend"]
+        NGINX["Nginx"]
+        API["Flask API"]
+
+        FE --> NGINX
+        NGINX --> API
+    end
+
+    API --> DB
+    API --> INFLUX
+
+    subgraph Monitoring
+        GRAFANA["Grafana Dashboard"]
+    end
+
+    INFLUX --> GRAFANA
+    NGINX --> GRAFANA
 ```
 
 ---
@@ -599,24 +573,27 @@ mariadb:
 **Schema:**
 ```sql
 -- Giá realtime (upsert mỗi giây)
-CREATE TABLE realtime_prices (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  symbol     VARCHAR(20) UNIQUE NOT NULL,
-  price      DECIMAL(20,8),
-  volume     DECIMAL(30,8),
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE IF NOT EXISTS `realtime_prices` (
+    `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `symbol`     VARCHAR(20)  NOT NULL,
+    `price`      DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    `volume`     DECIMAL(30, 8) NOT NULL DEFAULT 0,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_symbol` (`symbol`),
+    INDEX `idx_updated_at` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Lịch sử cảnh báo
-CREATE TABLE price_alerts (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  symbol     VARCHAR(20),
-  alert_type ENUM('HIGH','LOW'),
-  price      DECIMAL(20,8),
-  threshold  DECIMAL(20,8),
-  message    TEXT,
-  sent_at    DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+CREATE TABLE `price_alerts` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `symbol` varchar(20) NOT NULL,
+  `alert_type` enum('HIGH','LOW') NOT NULL,
+  `price` decimal(20,8) NOT NULL,
+  `threshold` decimal(20,8) NOT NULL,
+  `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sent_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 ```
 
 ## 🔷 InfluxDB
@@ -670,7 +647,7 @@ cloudflared:
 
 ---
 
-# 7. Hướng dẫn cài đặt & chạy
+# 7. Các bước cài đặt & chạy
 
 ## Bước 1: Cài Docker & Docker Compose
 
@@ -717,24 +694,48 @@ nano .env
 Điền đầy đủ các giá trị:
 
 ```env
-# MariaDB
-MARIADB_ROOT_PASSWORD=rootpassword123
+# --- Project ---
+COMPOSE_PROJECT_NAME=crypto-monitor
+
+# --- MariaDB ---
+MARIADB_ROOT_PASSWORD=
 MARIADB_DATABASE=cryptodb
-MARIADB_USER=cryptouser
-MARIADB_PASSWORD=cryptopass123
+MARIADB_USER=
+MARIADB_PASSWORD=
 
-# InfluxDB
-INFLUXDB_TOKEN=my-super-secret-token
+# --- InfluxDB ---
+INFLUXDB_ADMIN_USER=
+INFLUXDB_ADMIN_PASSWORD=
+INFLUXDB_ORG=crypto-org
+INFLUXDB_BUCKET=crypto_prices
+INFLUXDB_TOKEN=N2d0xXFRGQY4xxxxxxxxxxx
 
-# Grafana
-GRAFANA_ADMIN_PASSWORD=grafanapass123
+# --- Grafana ---
+GRAFANA_ADMIN_USER=
+GRAFANA_ADMIN_PASSWORD=
 
-# Telegram (xem Bước 10 để lấy token)
-TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
-TELEGRAM_CHAT_ID=-1001234567890
+# --- Telegram ---
+TELEGRAM_BOT_TOKEN=xxxxx
+TELEGRAM_CHAT_ID=-1003xxxxx
 
-# Cloudflare Tunnel (xem Bước 11)
-CLOUDFLARE_TUNNEL_TOKEN=eyJh...
+# --- Cloudflare ---
+CLOUDFLARE_TUNNEL_TOKEN=
+
+# --- Flask ---
+FLASK_SECRET_KEY=flask-secret-key-change-in-production
+FLASK_ENV=production
+
+# --- Binance WebSocket ---
+BINANCE_WS_URL=wss://stream.binance.com:9443/stream
+SYMBOLS=btcusdt,ethusdt,solusdt
+
+# --- Alert Thresholds ---
+BTC_HIGH=120000
+BTC_LOW=100000
+ETH_HIGH=7000
+ETH_LOW=4000
+SOL_HIGH=300
+SOL_LOW=100
 ```
 
 ## Bước 4: Khởi chạy hệ thống
