@@ -861,6 +861,8 @@ BTCUSDT: $105234.50 | ETHUSDT: $4120.33 | SOLUSDT: $187.22
 
 <img width="1919" height="1026" alt="image" src="https://github.com/user-attachments/assets/3659398e-6ed7-48a4-9463-287fe747f117" />
 
+<img width="1900" height="848" alt="image" src="https://github.com/user-attachments/assets/e203747d-9eb6-44f0-9371-73213c83c1ed" />
+
 ## 9.4 Lấy URL iframe cho Frontend
 
 1. Mở dashboard **Crypto Monitor**
@@ -874,7 +876,7 @@ Cập nhật trong `frontend/src/App.jsx`:
 const iframeSrc = `http://localhost:3000/d/crypto-prices/crypto-monitor?orgId=1&...`
 ```
 
-> 📸 **Ảnh 7**: Grafana Dashboard hiển thị biểu đồ giá BTC/ETH/SOL theo thời gian
+<img width="1919" height="985" alt="image" src="https://github.com/user-attachments/assets/87b13235-67a4-4f17-9343-e2ab42ea6e00" />
 
 ---
 
@@ -926,25 +928,13 @@ TELEGRAM_CHAT_ID=
 ```
 <img width="1410" height="923" alt="Screenshot 2026-06-07 165100" src="https://github.com/user-attachments/assets/f59b1edc-3fc8-4ecf-8eae-4d645488a541" />
 
-## Bước 4: Test gửi tin nhắn
-
-```bash
-curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "chat_id": "'${TELEGRAM_CHAT_ID}'",
-    "text": "✅ Crypto Monitor Alert Bot đã kết nối thành công!",
-    "parse_mode": "Markdown"
-  }'
-```
-
-## Bước 5: Restart Node-RED
+## Bước 4: Restart Node-RED
 
 ```bash
 docker compose restart nodered
 ```
-
-> 📸 **Ảnh 10**: Tin nhắn Telegram Alert nhận được trong group với format đầy đủ
+### Bot đã gửi tin nhắn thành công
+<img width="1496" height="934" alt="image" src="https://github.com/user-attachments/assets/d203c78a-67c1-4274-b60e-3de15ec473b7" />
 
 ---
 
@@ -980,25 +970,7 @@ Gửi Telegram + Lưu DB
 
 ## 📱 Format tin nhắn Telegram
 
-```
-🔴 ALERT HIGH
-
-Coin: BTCUSDT
-Price: 120,500 USD
-Threshold: 120,000 USD
-Time: 2026-06-20 20:15:30
-```
-
-```
-🔵 ALERT LOW
-
-Coin: BTCUSDT
-Price: 99,500 USD
-Threshold: 100,000 USD
-Time: 2026-06-20 20:15:30
-```
-
-> 📸 **Ảnh 6**: InfluxDB Data Explorer hiển thị time-series data `crypto_price` measurement
+<img width="1496" height="934" alt="image" src="https://github.com/user-attachments/assets/7d166822-3d5e-41a7-9019-5f8d32ecebb3" />
 
 ---
 
