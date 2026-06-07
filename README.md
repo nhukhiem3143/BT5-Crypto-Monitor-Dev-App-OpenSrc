@@ -12,7 +12,7 @@
 [![Grafana](https://img.shields.io/badge/Grafana-10.4-F46800?logo=grafana&logoColor=white)](https://grafana.com)
 [![InfluxDB](https://img.shields.io/badge/InfluxDB-2.7-22ADF6?logo=influxdb&logoColor=white)](https://influxdata.com)
 [![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![phpMyAdmin](https://img.shields.io/badge/phpMyAdmin-5.2.1-6C78AF?logo=phpmyadmin&logoColor=white)](https://www.phpmyadmin.net)
 
 </div>
 
@@ -385,7 +385,7 @@ docker run -d --name flask_restored crypto-flask-api:snapshot
                                              │ HTTPS
                           ┌──────────────────▼──────────────────────────┐
                           │          CLOUDFLARE TUNNEL                   │
-                          │     monitor.nhukhiem.id.vn                   │
+                          │     crypto.nhukhiem.id.vn                   │
                           └──────────────────┬──────────────────────────┘
                                              │
                           ┌──────────────────▼──────────────────────────┐
@@ -495,7 +495,6 @@ crypto-monitor-project/
 ├── 📄 .env.example                # Template .env
 ├── 📄 .gitignore
 ├── 📄 README.md
-├── 📄 LICENSE
 │
 ├── 📁 nginx/
 │   ├── nginx.conf                 # Cấu hình Nginx chính
@@ -535,17 +534,10 @@ crypto-monitor-project/
 │       │   └── datasources.yml
 │       └── dashboards/
 │           └── dashboards.yml
-│
-├── 📁 cloudflared/
-│   └── config.yml                 # Tunnel config (optional)
-│
-├── 📁 scripts/
-│   ├── backup.sh                  # Script backup volumes
-│   ├── restore.sh                 # Script restore volumes
-│   └── offline-export.sh          # Export images cho deploy offline
-│
-└── 📁 docs/
-    └── images/                    # Ảnh minh chứng
+└── 📁 scripts/
+    ├── backup.sh                  # Script backup volumes
+    ├── restore.sh                 # Script restore volumes
+    └── offline-export.sh          # Export images cho deploy offline
 ```
 
 ---
@@ -705,14 +697,14 @@ newgrp docker
 docker --version
 docker compose version
 ```
+<img width="722" height="248" alt="image" src="https://github.com/user-attachments/assets/c8c81d36-e05b-47eb-a6b6-d34737355a88" />
 
-> 📸 **Ảnh 1**: Chụp màn hình terminal sau khi chạy `docker --version` và `docker compose version`
 
 ## Bước 2: Clone project
 
 ```bash
-git clone https://github.com/your-username/crypto-monitor.git
-cd crypto-monitor
+git clone https://github.com/nhukhiem3143/BT5-Crypto-Monitor-Dev-App-OpenSrc.git
+cd crypto-monitor-project
 ```
 
 ## Bước 3: Cấu hình `.env`
@@ -751,12 +743,12 @@ CLOUDFLARE_TUNNEL_TOKEN=eyJh...
 # Build và start tất cả services
 docker compose up -d --build
 
-# Theo dõi log
-docker compose logs -f
+<img width="1384" height="841" alt="image" src="https://github.com/user-attachments/assets/4d5d2af3-6baa-4a53-ac88-b5a027e21b10" />
 
 # Kiểm tra trạng thái
 docker compose ps
 ```
+<img width="1605" height="327" alt="image" src="https://github.com/user-attachments/assets/335025fa-5c62-4285-86ab-054cc95746f6" />
 
 > 📸 **Ảnh 2**: `docker compose up -d` chạy thành công, tất cả containers `Up`
 
@@ -764,22 +756,21 @@ docker compose ps
 
 ## Bước 5: Kiểm tra
 
-| Service | URL | Credentials |
-|---|---|---|
-| **Frontend** | http://localhost | — |
-| **Flask API** | http://localhost/api/health | — |
-| **Grafana** | http://localhost:3000 | admin / grafanapass123 |
-| **Node-RED** | http://localhost:1880 | — |
-| **InfluxDB** | http://localhost:8086 | admin / influxpass123 |
+| Service | URL | 
+|---|---|
+| **Frontend** | http://http://192.168.100.2/ | 
+| **Flask API** | http://http://192.168.100.2/api/health | 
+| **Grafana** | http://192.168.100.2/:3000 |
+| **Node-RED** | http://192.168.100.2:1880 | 
+| **InfluxDB** | http://192.168.100.2:8086 | 
+| **PhpMyadmin** | http://192.168.100.2:8086 |
 
-```bash
-# Test Flask API
-curl http://localhost/api/health
-curl http://localhost/api/prices
-curl http://localhost/api/system-status
-```
+<img width="1914" height="976" alt="image" src="https://github.com/user-attachments/assets/633574a5-e052-4cbc-ab29-50481a0b4f66" />
+<img width="876" height="246" alt="image" src="https://github.com/user-attachments/assets/5b0c77e0-9311-4c9c-ae6e-978110a7af1e" />
+<img width="1446" height="941" alt="image" src="https://github.com/user-attachments/assets/65cd1bf7-7891-4bb8-b0fa-c07022d94843" />
+<img width="1465" height="936" alt="image" src="https://github.com/user-attachments/assets/5fc58d7e-70bc-4916-bb23-4582aaea7058" />
+<img width="1447" height="922" alt="image" src="https://github.com/user-attachments/assets/cbfe19d7-baca-4ae8-8a65-5b5fa62a92b1" />
 
-> 📸 **Ảnh 8**: Flask API trả về response JSON từ endpoint `/api/prices`
 
 ---
 
@@ -787,7 +778,7 @@ curl http://localhost/api/system-status
 
 ## 8.1 Truy cập giao diện
 
-Mở trình duyệt: **http://localhost:1880**
+Mở trình duyệt: **http://192.168.100.2:1880/**
 
 ## 8.2 Import flows (nếu chưa tự load)
 
@@ -796,7 +787,8 @@ Mở trình duyệt: **http://localhost:1880**
 3. Click **Import**
 4. Click **Deploy** (nút đỏ góc trên phải)
 
-> 📸 **Ảnh 4**: Node-RED Flow Editor hiển thị pipeline Binance → MariaDB → InfluxDB → Telegram
+<img width="1915" height="1079" alt="image" src="https://github.com/user-attachments/assets/76ca55f6-79da-44ce-b4d2-234a66eb5949" />
+
 
 ## 8.3 Cấu hình credentials MariaDB
 
@@ -805,13 +797,24 @@ Mở trình duyệt: **http://localhost:1880**
 3. Điền:
    - **Host**: `mariadb`
    - **Port**: `3306`
-   - **User**: `cryptouser`
-   - **Password**: `cryptopass123`
+   - **User**: `admin`
+   - **Password**: `admin123`
    - **Database**: `cryptodb`
 4. **Add** → **Done** → **Deploy**
+<img width="1128" height="900" alt="image" src="https://github.com/user-attachments/assets/80813617-919b-4629-bb33-7efdb8054dc8" />
 
 ## 8.4 Cấu hình credentials InfluxDB
+### Lấy token InfluxDB
+1. Mở InfluxDB UI tại http://192.168.100.2:8086.
+2. Đăng nhập bằng INFLUXDB_ADMIN_USER và INFLUXDB_ADMIN_PASSWORD.
+3. Vào menu Load Data → API Tokens.
+4. Chọn Generate Token:
+   - Nếu muốn toàn quyền → chọn All Access Token.
+   - Nếu chỉ muốn ghi dữ liệu vào bucket crypto_prices → chọn Write Token cho bucket đó.
+5. Copy chuỗi token vừa tạo và dán vào biến môi trường INFLUXDB_TOKEN trong file .env.
+<img width="1451" height="934" alt="Screenshot 2026-06-07 155729" src="https://github.com/user-attachments/assets/afc712bb-6ca1-437a-a2d6-dfe4ed4aef67" />
 
+### Cấu hình trong Node-RED
 1. Double-click node **InfluxDB Write**
 2. Click ✏️ bên cạnh Server
 3. Điền:
@@ -822,14 +825,15 @@ Mở trình duyệt: **http://localhost:1880**
    - **Bucket**: `crypto_prices`
 4. **Add** → **Done** → **Deploy**
 
+<img width="719" height="807" alt="image" src="https://github.com/user-attachments/assets/45774a63-7c57-4087-b758-ec90342712c0" />
+
 ## 8.5 Kiểm tra flow hoạt động
 
 Sau khi Deploy, mở **Debug sidebar** (biểu tượng 🐛). Bạn sẽ thấy log mỗi 10 giây:
 ```
 BTCUSDT: $105234.50 | ETHUSDT: $4120.33 | SOLUSDT: $187.22
 ```
-
-> 📸 **Ảnh 5**: MariaDB `realtime_prices` table hiển thị giá đang cập nhật
+<img width="1481" height="958" alt="image" src="https://github.com/user-attachments/assets/2c8fddf5-5233-4f24-be61-57dd04e8d393" />
 
 ---
 
@@ -837,7 +841,7 @@ BTCUSDT: $105234.50 | ETHUSDT: $4120.33 | SOLUSDT: $187.22
 
 ## 9.1 Đăng nhập
 
-- URL: **http://localhost:3000**
+- URL: **http://192.168.100.2:3000**
 - User: `admin` / Password: _(GRAFANA_ADMIN_PASSWORD)_
 
 ## 9.2 Kiểm tra Datasource
@@ -845,12 +849,16 @@ BTCUSDT: $105234.50 | ETHUSDT: $4120.33 | SOLUSDT: $187.22
 1. **☰ Menu** → **Connections** → **Data sources**
 2. Chọn **InfluxDB** (đã được provisioning tự động)
 3. Click **Save & test** → Xanh lá ✅
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/256c67c8-73cd-4613-8f6d-0bca7c8074db" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/3714c2d8-e293-4270-8c10-33abfa10d6ad" />
 
 ## 9.3 Import Dashboard
 
 1. **☰ Menu** → **Dashboards** → **Import**
 2. Upload file `grafana/dashboards/crypto-prices.json`
 3. Chọn datasource **InfluxDB** → **Import**
+
+<img width="1919" height="1026" alt="image" src="https://github.com/user-attachments/assets/3659398e-6ed7-48a4-9463-287fe747f117" />
 
 ## 9.4 Lấy URL iframe cho Frontend
 
@@ -876,19 +884,22 @@ const iframeSrc = `http://localhost:3000/d/crypto-prices/crypto-monitor?orgId=1&
 1. Mở Telegram, tìm **[@BotFather](https://t.me/BotFather)**
 2. Gõ `/newbot`
 3. Đặt tên bot: `CryptoMonitorBot`
-4. Đặt username: `crypto_monitor_alert_bot`
+4. Đặt username: `crypto_khiem_bot`
 5. **BotFather** trả về **Token** dạng: `1234567890:ABCdefGHI...`
 6. Lưu token vào `.env`:
    ```env
    TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
    ```
+<img width="1488" height="911" alt="Screenshot 2026-06-07 163731" src="https://github.com/user-attachments/assets/43ccfa28-93f0-411a-9a59-dd7bbf44a023" />
 
 ## Bước 2: Tạo Group Telegram
 
 1. Tạo group mới: **Crypto Alert Group**
-2. Thêm các thành viên: Member 1, Member 2, User `1875746636`
+2. Thêm các thành viên: User `1875746636`
 3. Thêm bot vào group (search username của bot)
 4. **Bắt buộc**: Set bot làm **Admin** trong group (để gửi được tin nhắn)
+
+<img width="1482" height="887" alt="Screenshot 2026-06-07 164348" src="https://github.com/user-attachments/assets/c9e33871-5789-41ad-bbc7-146a8746e62f" />
 
 ## Bước 3: Lấy Chat ID của Group
 
@@ -897,12 +908,12 @@ const iframeSrc = `http://localhost:3000/d/crypto-prices/crypto-monitor?orgId=1&
 # Sau đó truy vấn:
 curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates"
 ```
-
+c
 Tìm trong kết quả JSON:
 ```json
 {
   "chat": {
-    "id": -1001234567890,   ← Đây là Chat ID (số âm = group)
+    "id": -100123456xxxxx,   ← Đây là Chat ID (số âm = group)
     "type": "supergroup"
   }
 }
@@ -910,8 +921,9 @@ Tìm trong kết quả JSON:
 
 Lưu vào `.env`:
 ```env
-TELEGRAM_CHAT_ID=-1001234567890
+TELEGRAM_CHAT_ID=
 ```
+<img width="1410" height="923" alt="Screenshot 2026-06-07 165100" src="https://github.com/user-attachments/assets/f59b1edc-3fc8-4ecf-8eae-4d645488a541" />
 
 ## Bước 4: Test gửi tin nhắn
 
@@ -1045,23 +1057,29 @@ docker compose ps
 1. Đăng nhập [Cloudflare Zero Trust](https://one.dash.cloudflare.com/)
 2. **Access** → **Tunnels** → **Create a tunnel**
 3. Đặt tên: `crypto-monitor`
+<img width="1469" height="918" alt="image" src="https://github.com/user-attachments/assets/73222c2d-764e-4f80-a194-0d5bd8e1365c" />
+
 4. **Docker** → Copy token
 5. Paste token vào `.env`:
    ```env
    CLOUDFLARE_TUNNEL_TOKEN=eyJhbGciOiJIUzI1...
    ```
+<img width="1430" height="925" alt="image" src="https://github.com/user-attachments/assets/b00a2da1-abc6-4653-a727-0195218845b1" />
+
 6. **Public Hostname**:
-   - Subdomain: `monitor`
+   - Subdomain: `crypto`
    - Domain: `nhukhiem.id.vn`
    - Service: `http://nginx:80`
+
+<img width="1919" height="1024" alt="image" src="https://github.com/user-attachments/assets/88595787-11f0-4785-bcc0-e8e38db19974" />
+
 7. Restart cloudflared:
    ```bash
    docker compose restart cloudflared
    ```
 
-Truy cập qua: **https://monitor.nhukhiem.id.vn**
+Truy cập qua: **https://crypto.nhukhiem.id.vn**
 
-> 📸 **Ảnh 11**: Cloudflare Tunnel dashboard hiển thị tunnel ACTIVE
 
 ---
 
