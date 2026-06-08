@@ -1,0 +1,35 @@
+# Environment variables (NEVER commit)
+.env
+*.env.local
+
+# Backup files
+backups/
+*.tar
+*.tar.gz
+
+# Docker
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+
+# Secrets
+secrets/
+*.pem
+*.key

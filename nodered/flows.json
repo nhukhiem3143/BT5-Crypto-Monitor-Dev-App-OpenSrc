@@ -1,0 +1,394 @@
+[
+    {
+        "id": "tab_crypto_main",
+        "type": "tab",
+        "label": "Crypto Monitor",
+        "disabled": false,
+        "info": "Main flow: Binance WS → MariaDB + InfluxDB + Telegram Alerts"
+    },
+    {
+        "id": "tab_api_alerts",
+        "type": "tab",
+        "label": "API Alerts",
+        "disabled": false,
+        "info": "Expose /api/alerts endpoint"
+    },
+    {
+        "id": "ws_binance_client",
+        "type": "websocket-client",
+        "path": "wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker",
+        "wholemsg": "false",
+        "hb": 30,
+        "subprotocol": ""
+    },
+    {
+        "id": "mariadb_config",
+        "type": "MySQLdatabase",
+        "name": "cryptodb",
+        "host": "mariadb",
+        "port": "3306",
+        "db": "cryptodb",
+        "tz": "",
+        "charset": "utf8mb4"
+    },
+    {
+        "id": "influxdb_config",
+        "type": "influxdb",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "crypto_prices",
+        "name": "InfluxDB v2",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://influxdb:8086",
+        "rejectUnauthorized": false
+    },
+    {
+        "id": "ws_binance",
+        "type": "websocket in",
+        "z": "tab_crypto_main",
+        "name": "Binance WebSocket",
+        "server": "",
+        "client": "ws_binance_client",
+        "x": 120,
+        "y": 100,
+        "wires": [
+            [
+                "fn_parse_ticker"
+            ]
+        ]
+    },
+    {
+        "id": "fn_parse_ticker",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Parse Ticker",
+        "func": "var raw = JSON.parse(msg.payload);\nvar stream = raw.stream || '';\nvar data = raw.data || raw;\n\nvar symbol = (data.s || stream.split('@')[0].toUpperCase());\nvar price = parseFloat(data.c || data.p || 0);\nvar volume = parseFloat(data.v || 0);\n\nif (!symbol || isNaN(price)) return null;\n\nmsg.payload = {\n    symbol: symbol,\n    price: price,\n    volume: volume,\n    time: new Date().toISOString()\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 100,
+        "wires": [
+            [
+                "fn_route_symbol"
+            ]
+        ]
+    },
+    {
+        "id": "fn_route_symbol",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Route & Throttle",
+        "func": "// Throttle: giới hạn cập nhật max 1 lần/giây cho mỗi cặp coin\nvar now = Date.now();\nvar key = 'last_' + msg.payload.symbol;\nvar last = context.get(key) || 0;\n\nif (now - last < 1000) return null;\ncontext.set(key, now);\n\n// Lưu trữ payload gốc đầy đủ vào flow context để phục vụ node Log Prices\nflow.set('price_' + msg.payload.symbol, msg.payload);\n\n// Trả về nguyên vẹn msg chứa đầy đủ msg.payload.symbol, price, volume\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 100,
+        "wires": [
+            [
+                "fn_save_mariadb",
+                "fn_save_influxdb",
+                "fn_check_threshold"
+            ]
+        ]
+    },
+    {
+        "id": "fn_save_mariadb",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Prepare MariaDB SQL",
+        "func": "var d = msg.payload;\nmsg.topic = `INSERT INTO realtime_prices (symbol, price, volume, updated_at)\n  VALUES ('${d.symbol}', ${d.price}, ${d.volume}, NOW())\n  ON DUPLICATE KEY UPDATE price=${d.price}, volume=${d.volume}, updated_at=NOW()`;\nreturn msg;",
+        "outputs": 1,
+        "x": 750,
+        "y": 60,
+        "wires": [
+            [
+                "mariadb_node"
+            ]
+        ]
+    },
+    {
+        "id": "mariadb_node",
+        "type": "mysql",
+        "z": "tab_crypto_main",
+        "mydb": "mariadb_config",
+        "name": "MariaDB Insert",
+        "x": 960,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fn_save_influxdb",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Prepare InfluxDB",
+        "func": "var d = msg.payload;\n\n// Lấy chính xác tên coin, phòng hờ bị mất thì tự map theo giá\nvar currentSymbol = d.symbol;\nif (!currentSymbol) {\n    var priceCheck = parseFloat(d.price);\n    if (priceCheck > 30000) currentSymbol = \"BTCUSDT\";\n    else if (priceCheck > 1000 && priceCheck < 5000) currentSymbol = \"ETHUSDT\";\n    else if (priceCheck > 1 && priceCheck < 200) currentSymbol = \"SOLUSDT\";\n    else currentSymbol = \"UNKNOWN\";\n} else {\n    currentSymbol = currentSymbol.toUpperCase();\n}\n\n// ĐỊNH NGHĨA TÊN TABLE (MEASUREMENT)\nmsg.measurement = 'crypto_price';\n\n// CÚ PHÁP ĐẶC BIỆT CHO NODE INFLUXDB OUT CŨ:\n// Gộp cả trường số (Fields) và thẻ phân loại (Tags) vào chung payload dạng Array\nmsg.payload = [\n    {\n        price: parseFloat(d.price),\n        volume: parseFloat(d.volume)\n    },\n    {\n        symbol: currentSymbol // Đây chính là cách vứt Tag vào cho node cũ hiểu\n    }\n];\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 120,
+        "wires": [
+            [
+                "influxdb_node",
+                "1d628dada1bb59dc"
+            ]
+        ]
+    },
+    {
+        "id": "influxdb_node",
+        "type": "influxdb out",
+        "z": "tab_crypto_main",
+        "influxdb": "influxdb_config",
+        "name": "InfluxDB Write",
+        "measurement": "crypto_price",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "crypto_prices",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "crypto-org",
+        "bucket": "crypto_prices",
+        "x": 1040,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "fn_check_threshold",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Check Thresholds",
+        "func": "var d = msg.payload;\n// Phòng hờ nếu node InfluxDB chạy trước làm mất d.symbol, \n// chúng ta tự đoán nhận token dựa trên giá tiền thực tế\nvar symbol = d.symbol;\nif (!symbol) {\n  if (d.price > 30000) symbol = \"BTCUSDT\";\n  else if (d.price > 1000 && d.price < 5000) symbol = \"ETHUSDT\";\n  else if (d.price > 1 && d.price < 200) symbol = \"SOLUSDT\";\n  else symbol = \"UNKNOWN\";\n}\n\n// Tự động đọc cấu hình từ file .env\nvar highThreshold = 0;\nvar lowThreshold = 0;\n\nif (symbol === \"BTCUSDT\") {\n  highThreshold = parseFloat(env.get(\"BTC_HIGH\")) || 120000;\n  lowThreshold = parseFloat(env.get(\"BTC_LOW\")) || 100000;\n} else if (symbol === \"ETHUSDT\") {\n  highThreshold = parseFloat(env.get(\"ETH_HIGH\")) || 7000;\n  lowThreshold = parseFloat(env.get(\"ETH_LOW\")) || 4000;\n} else if (symbol === \"SOLUSDT\") {\n  highThreshold = parseFloat(env.get(\"SOL_HIGH\")) || 300;\n  lowThreshold = parseFloat(env.get(\"SOL_LOW\")) || 100;\n}\n\nif (highThreshold === 0 || lowThreshold === 0) return null;\n\n// Cooldown: Chống spam alert 5 phút\nvar coolKey = 'cooldown_' + symbol;\nvar cd = context.get(coolKey) || {};\nvar now = Date.now();\n\nvar alertType = null;\nvar thresholdValue = null;\n\nif (d.price > highThreshold) {\n  if (!cd.HIGH || (now - cd.HIGH) > 300000) {\n    alertType = 'HIGH';\n    thresholdValue = highThreshold;\n    cd.HIGH = now;\n  }\n} else if (d.price < lowThreshold) {\n  if (!cd.LOW || (now - cd.LOW) > 300000) {\n    alertType = 'LOW';\n    thresholdValue = lowThreshold;\n    cd.LOW = now;\n  }\n}\n\nif (!alertType) return null;\ncontext.set(coolKey, cd);\n\nvar timeStr = new Date().toISOString().replace('T', ' ').split('.')[0];\nvar emoji = alertType === 'HIGH' ? '🔴' : '🔵';\nvar alertLabel = alertType === 'HIGH' ? 'ALERT HIGH' : 'ALERT LOW';\n\n// Chuỗi gửi Telegram viết bằng dấu nháy đơn thường để loại bỏ 100% lỗi Syntax Backtick\nvar text = emoji + ' *' + alertLabel + '*\\n\\n' +\n  'Coin: `' + symbol + '`\\n' +\n  'Price: `' + d.price.toLocaleString() + ' USD`\\n' +\n  'Threshold: `' + thresholdValue.toLocaleString() + ' USD`\\n' +\n  'Time: `' + timeStr + '`';\n\nmsg.alert = {\n  symbol: symbol,\n  alert_type: alertType,\n  price: d.price,\n  threshold: thresholdValue,\n  time: timeStr\n};\nmsg.telegram_text = text;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 280,
+        "wires": [
+            [
+                "fn_send_telegram",
+                "fn_save_alert_db"
+            ]
+        ]
+    },
+    {
+        "id": "fn_send_telegram",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Send Telegram",
+        "func": "var botToken = env.get('TELEGRAM_BOT_TOKEN');\nvar chatId = env.get('TELEGRAM_CHAT_ID');\n\nif (!botToken || !chatId || botToken === 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {\n  node.warn('Telegram not configured');\n  return null;\n}\n\nvar url = `https://api.telegram.org/bot${botToken}/sendMessage`;\n\nmsg.url = url;\nmsg.method = 'POST';\nmsg.headers = { 'Content-Type': 'application/json' };\nmsg.payload = JSON.stringify({\n  chat_id: chatId,\n  text: msg.telegram_text,\n  parse_mode: 'Markdown'\n});\n\nreturn msg;",
+        "outputs": 1,
+        "x": 960,
+        "y": 220,
+        "wires": [
+            [
+                "http_telegram"
+            ]
+        ]
+    },
+    {
+        "id": "http_telegram",
+        "type": "http request",
+        "z": "tab_crypto_main",
+        "name": "Telegram API",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 1190,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fn_save_alert_db",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Save Alert to DB",
+        "func": "var a = msg.alert;\nmsg.topic = `INSERT INTO price_alerts (symbol, alert_type, price, threshold, message, sent_at)\n  VALUES ('${a.symbol}', '${a.alert_type}', ${a.price}, ${a.threshold}, '${msg.telegram_text.replace(/'/g,\"''\")}', NOW())`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 960,
+        "y": 340,
+        "wires": [
+            [
+                "mariadb_alert_node"
+            ]
+        ]
+    },
+    {
+        "id": "mariadb_alert_node",
+        "type": "mysql",
+        "z": "tab_crypto_main",
+        "mydb": "mariadb_config",
+        "name": "MariaDB Alert Insert",
+        "x": 1200,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "inject_debug",
+        "type": "inject",
+        "z": "tab_crypto_main",
+        "name": "Heartbeat (10s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "heartbeat",
+        "payloadType": "str",
+        "x": 120,
+        "y": 280,
+        "wires": [
+            [
+                "fn_debug_status"
+            ]
+        ]
+    },
+    {
+        "id": "fn_debug_status",
+        "type": "function",
+        "z": "tab_crypto_main",
+        "name": "Log Prices",
+        "func": "var symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];\nvar out = symbols.map(s => {\n  var p = flow.get('price_' + s);\n  return p ? `${s}: $${p.price}` : `${s}: waiting...`;\n}).join(' | ');\nnode.warn(out);\nreturn null;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "1d628dada1bb59dc",
+        "type": "debug",
+        "z": "tab_crypto_main",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 910,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "http_in_alerts",
+        "type": "http in",
+        "z": "tab_api_alerts",
+        "name": "GET /api/alerts",
+        "url": "/api/alerts",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "fn_query_alerts"
+            ]
+        ]
+    },
+    {
+        "id": "fn_query_alerts",
+        "type": "function",
+        "z": "tab_api_alerts",
+        "name": "Query Alerts SQL",
+        "func": "var limit = parseInt(msg.req.query.limit || 20);\nmsg.topic = `SELECT id, symbol, alert_type, price, threshold, message, sent_at\nFROM price_alerts\nORDER BY sent_at DESC\nLIMIT ${limit}`;\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 100,
+        "wires": [
+            [
+                "mysql_alerts"
+            ]
+        ]
+    },
+    {
+        "id": "mysql_alerts",
+        "type": "mysql",
+        "z": "tab_api_alerts",
+        "mydb": "mariadb_config",
+        "name": "MariaDB Query Alerts",
+        "x": 580,
+        "y": 100,
+        "wires": [
+            [
+                "fn_format_json"
+            ]
+        ]
+    },
+    {
+        "id": "fn_format_json",
+        "type": "function",
+        "z": "tab_api_alerts",
+        "name": "Format JSON",
+        "func": "msg.payload = msg.payload || [];\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 100,
+        "wires": [
+            [
+                "http_response_alerts"
+            ]
+        ]
+    },
+    {
+        "id": "http_response_alerts",
+        "type": "http response",
+        "z": "tab_api_alerts",
+        "name": "Return Alerts",
+        "statusCode": "",
+        "headers": {},
+        "x": 1020,
+        "y": 100,
+        "wires": []
+    }
+]
