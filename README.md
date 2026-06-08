@@ -751,10 +751,6 @@ docker compose ps
 ```
 <img width="1605" height="327" alt="image" src="https://github.com/user-attachments/assets/335025fa-5c62-4285-86ab-054cc95746f6" />
 
-> 📸 **Ảnh 2**: `docker compose up -d` chạy thành công, tất cả containers `Up`
-
-> 📸 **Ảnh 3**: `docker compose ps` hiển thị danh sách container đang chạy
-
 ## Bước 5: Kiểm tra
 
 | Service | URL | 
@@ -771,7 +767,6 @@ docker compose ps
 <img width="1446" height="941" alt="image" src="https://github.com/user-attachments/assets/65cd1bf7-7891-4bb8-b0fa-c07022d94843" />
 <img width="1465" height="936" alt="image" src="https://github.com/user-attachments/assets/5fc58d7e-70bc-4916-bb23-4582aaea7058" />
 <img width="1447" height="922" alt="image" src="https://github.com/user-attachments/assets/cbfe19d7-baca-4ae8-8a65-5b5fa62a92b1" />
-
 
 ---
 
@@ -950,20 +945,17 @@ docker compose restart nodered
 
 ## 🔄 Flow logic trong Node-RED
 
-```
-Nhận giá từ WebSocket
-        │
-        ▼
- Kiểm tra ngưỡng
-  ┌─────┴──────┐
-  │            │
-HIGH?         LOW?
-  │            │
-  ▼            ▼
-Cooldown 5 phút  ◄── Đã gửi alert gần đây? → Skip
-  │
-  ▼
-Gửi Telegram + Lưu DB
+```mermaid
+flowchart LR
+    A[Nhận giá từ WebSocket] --> B{Kiểm tra ngưỡng}
+
+    B -->|HIGH| C[Cooldown 5 phút]
+    B -->|LOW| C
+
+    C --> D{Đã gửi alert gần đây?}
+
+    D -->|Có| E[Skip]
+    D -->|Không| F[Gửi Telegram + Lưu DB]
 ```
 
 **Cooldown 5 phút**: Tránh spam alert khi giá dao động quanh ngưỡng. Mỗi (symbol + direction) có cooldown độc lập.
@@ -997,6 +989,10 @@ gzip -9 crypto-monitor-all-images.tar
 ls -lh crypto-monitor-all-images.tar.gz
 ```
 
+<img width="828" height="605" alt="image" src="https://github.com/user-attachments/assets/f6e63883-ecb6-43f0-8c71-87b1daa0bc1b" />
+
+<img width="913" height="597" alt="image" src="https://github.com/user-attachments/assets/51626ef7-43cd-4a94-86a9-8e00a3c58e57" />
+
 ## 12.2 Chuyển lên server
 
 ```bash
@@ -1010,20 +1006,19 @@ scp -r crypto-monitor-all-images.tar.gz \
 
 ```bash
 ssh user@server-ip
-cd /opt/crypto-monitor
+cd crypto-monitor-project
 
 # Load images
 gunzip crypto-monitor-all-images.tar.gz
 docker load -i crypto-monitor-all-images.tar
 
+<img width="948" height="264" alt="image" src="https://github.com/user-attachments/assets/54aafd9e-d581-4e97-8a71-65c1784ddf62" />
+
 # Chạy stack
 docker compose up -d
 docker compose ps
 ```
-
-> 📸 **Ảnh 12**: `docker save` tạo file `.tar.gz` thành công
-
-> 📸 **Ảnh 13**: `docker load` nạp images vào server offline
+<img width="1291" height="752" alt="image" src="https://github.com/user-attachments/assets/77777a25-60f5-4490-93db-7bf5473d58b8" />
 
 ## 12.4 Cấu hình Cloudflare Tunnel
 
@@ -1053,12 +1048,13 @@ docker compose ps
 
 Truy cập qua: **https://crypto.nhukhiem.id.vn**
 
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/fd75b468-85bf-4c57-807f-81d0971fdeee" />
 
 ---
 
 # 13. Troubleshooting
 
-## ❌ Container không khởi động
+## Container không khởi động
 
 ```bash
 # Xem log chi tiết
@@ -1069,7 +1065,7 @@ docker compose logs mariadb
 docker inspect crypto_mariadb | grep -A 20 Health
 ```
 
-## ❌ Node-RED không kết nối MariaDB
+## Node-RED không kết nối MariaDB
 
 ```bash
 # Kiểm tra MariaDB đã ready chưa
@@ -1079,7 +1075,7 @@ docker exec crypto_mariadb mysql -ucryptouser -pcryptopass123 cryptodb -e "SHOW 
 docker compose restart nodered
 ```
 
-## ❌ Grafana không load dữ liệu
+## Grafana không load dữ liệu
 
 ```bash
 # Kiểm tra InfluxDB token
@@ -1089,7 +1085,7 @@ docker exec crypto_influxdb influx ping
 docker exec crypto_influxdb influx bucket list
 ```
 
-## ❌ Telegram không nhận alert
+## Telegram không nhận alert
 
 ```bash
 # Test token hợp lệ
@@ -1099,7 +1095,7 @@ curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
 curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
 ```
 
-## ❌ Frontend không load
+## Frontend không load
 
 ```bash
 # Rebuild frontend
@@ -1109,68 +1105,10 @@ docker compose up -d frontend nginx
 # Kiểm tra dist đã có chưa
 ls -la frontend/dist/
 ```
-
-## 🔧 Lệnh hữu ích
-
-```bash
-# Xem log realtime tất cả services
-docker compose logs -f
-
-# Restart một service
-docker compose restart flask-api
-
-# Vào shell container
-docker exec -it crypto_mariadb bash
-docker exec -it crypto_flask_api sh
-
-# Xem resource usage
-docker stats
-
-# Dừng toàn bộ hệ thống
-docker compose down
-
-# Dừng và xóa volumes (⚠️ mất dữ liệu!)
-docker compose down -v
-```
-
-> 📸 **Ảnh 16**: `docker compose down` dừng toàn bộ stack
-
-> 📸 **Ảnh 17**: `docker compose up -d` khởi động lại thành công
-
-> 📸 **Ảnh 18**: Hệ thống hoạt động bình thường sau khi restore
-
 ---
 
+# The End
 ---
-
-# 🔗 Git Commit History (Đề xuất)
-
-```
-feat: initial project structure and docker-compose.yml
-feat: add MariaDB with init schema
-feat: add InfluxDB time-series storage
-feat: add Flask API with all endpoints
-feat: add Node-RED flows for Binance WebSocket
-feat: add Telegram alert integration
-feat: add Grafana provisioning and dashboard
-feat: add Nginx reverse proxy config
-feat: add React frontend with dark theme
-feat: add Cloudflare Tunnel configuration
-feat: add backup and restore scripts
-docs: add comprehensive README.md
-chore: add .gitignore and .env.example
-fix: mariadb healthcheck depends_on
-fix: nodered influxdb credentials
-```
-
----
-
-# 📄 License
-
-MIT License — see [LICENSE](LICENSE)
-
----
-
 <div align="center">
 
 **Made with ❤️ using Docker, Node-RED, Grafana, InfluxDB, MariaDB, Flask & React**
